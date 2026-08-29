@@ -3,24 +3,30 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
+
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth");
+const testRoutes = require("./routes/test");
+
 dotenv.config();
 
 const app = express();
-app.use(helmet());
 const PORT = process.env.PORT || 5000;
 
-// Database
-connectDB();
+// ==================== SECURITY ====================
 
-// Middleware
+app.use(helmet());
+
 app.use(
   cors({
     origin: "http://localhost:5173",
   })
-);;
+);
+
 app.use(express.json({ limit: "10kb" }));
+
+// ==================== RATE LIMITING ====================
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -31,19 +37,27 @@ const authLimiter = rateLimit({
   },
 });
 
-app.use("/api/auth", authLimiter);
-// Routes
-app.use("/api/auth", authRoutes);
+// ==================== DATABASE ====================
 
-// Health check
+connectDB();
+
+// ==================== ROUTES ====================
+
+app.use("/api/auth", authLimiter, authRoutes);
+
+app.use("/api/test", testRoutes);
+
+// ==================== HEALTH CHECK ====================
+
 app.get("/api/health", (req, res) => {
   res.json({
     success: true,
-    message: "CGC backend is running 🚀",
+    message: "CGC backend is running",
   });
 });
 
-// Global error handler
+// ==================== GLOBAL ERROR HANDLER ====================
+
 app.use((err, req, res, next) => {
   console.error("SERVER ERROR:", err.message);
 
@@ -51,6 +65,8 @@ app.use((err, req, res, next) => {
     message: "Something went wrong.",
   });
 });
+
+// ==================== SERVER ====================
 
 app.listen(PORT, () => {
   console.log(`CGC server running on http://localhost:${PORT}`);
