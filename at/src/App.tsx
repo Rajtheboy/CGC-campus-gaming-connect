@@ -9,18 +9,30 @@ type Portal = {
   description: string;
 };
 
+type UserProfile = {
+  id: string;
+  gamerName: string;
+  collegeEmail: string;
+  campus: string;
+  platform: string;
+  games: string[];
+};
+
 const portals: Record<string, Portal> = {
   campus: {
     title: "Select Campus",
-    description: "Choose your campus and become part of its CGC community.",
+    description:
+      "Choose your campus and become part of its CGC community.",
   },
   esports: {
     title: "CGC Esports",
-    description: "Compete, represent your campus, and connect with your team.",
+    description:
+      "Compete, represent your campus, and connect with your team.",
   },
   gamers: {
     title: "Gamer Profiles",
-    description: "Discover gamers across CGC and find people who play like you.",
+    description:
+      "Discover gamers across CGC and find people who play like you.",
   },
   profile: {
     title: "Your Profile",
@@ -42,8 +54,14 @@ function App() {
   const [gamerName, setGamerName] = useState("");
   const [collegeEmail, setCollegeEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+
+  const [token, setToken] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
 
   const openAuth = (mode: AuthMode = "login") => {
     setAuthMode(mode);
@@ -51,9 +69,47 @@ function App() {
     setPage("auth");
   };
 
-  const openPortal = (portal: string) => {
+  const openPortal = async (portal: string) => {
     setSelectedPortal(portal);
+
+    if (portal === "profile") {
+      await loadProfile();
+    }
+
     setPage("portal");
+  };
+
+  const loadProfile = async () => {
+    if (!token) {
+      setProfileError("You need to be logged in to view your profile.");
+      return;
+    }
+
+    setProfileLoading(true);
+    setProfileError("");
+
+    try {
+      const response = await fetch("http://localhost:5000/api/profile", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setProfileError(data.message || "Unable to load profile.");
+        return;
+      }
+
+      setProfile(data.user);
+    } catch (error) {
+      console.error("Profile error:", error);
+      setProfileError("Unable to connect to CGC.");
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   const handleAuthSubmit = async (
@@ -87,7 +143,8 @@ function App() {
           return;
         }
 
-        console.log("LOGIN SUCCESS:", data.user);
+        setToken(data.token);
+        setProfile(data.user);
         setPage("hub");
       } else {
         const response = await fetch(
@@ -112,8 +169,10 @@ function App() {
           return;
         }
 
-        console.log("SIGNUP SUCCESS:", data.user);
-        setPage("hub");
+        // Signup currently creates the account but does not issue a JWT.
+        // Send the user to login so authentication is established normally.
+        setAuthMode("login");
+        setAuthError("Account created. Please log in.");
       }
     } catch (error) {
       console.error("Authentication error:", error);
@@ -150,7 +209,10 @@ function App() {
             and compete together.
           </p>
 
-          <button className="enter-button" onClick={() => openAuth("login")}>
+          <button
+            className="enter-button"
+            onClick={() => openAuth("login")}
+          >
             ENTER CGC
           </button>
         </main>
@@ -259,6 +321,78 @@ function App() {
   }
 
   if (page === "portal") {
+    if (selectedPortal === "profile") {
+      return (
+        <div className="landing auth-page">
+          <main className="auth-container">
+            <p className="eyebrow">YOUR CGC PROFILE</p>
+
+            {profileLoading && (
+              <>
+                <h1>Loading profile...</h1>
+                <p className="auth-description">
+                  Fetching your gamer identity.
+                </p>
+              </>
+            )}
+
+            {!profileLoading && profileError && (
+              <>
+                <h1>Profile unavailable.</h1>
+
+                <p className="auth-description">
+                  {profileError}
+                </p>
+
+                <button
+                  className="enter-button"
+                  onClick={() => setPage("hub")}
+                >
+                  BACK TO HUB
+                </button>
+              </>
+            )}
+
+            {!profileLoading && !profileError && profile && (
+              <>
+                <h1>{profile.gamerName}</h1>
+
+                <p className="auth-description">
+                  {profile.collegeEmail}
+                </p>
+
+                <div className="profile-details">
+                  <p>
+                    <strong>Campus:</strong>{" "}
+                    {profile.campus || "Not selected"}
+                  </p>
+
+                  <p>
+                    <strong>Platform:</strong>{" "}
+                    {profile.platform || "Not selected"}
+                  </p>
+
+                  <p>
+                    <strong>Games:</strong>{" "}
+                    {profile.games.length > 0
+                      ? profile.games.join(", ")
+                      : "No games added yet"}
+                  </p>
+                </div>
+
+                <button
+                  className="enter-button"
+                  onClick={() => setPage("hub")}
+                >
+                  BACK TO HUB
+                </button>
+              </>
+            )}
+          </main>
+        </div>
+      );
+    }
+
     const portal = portals[selectedPortal];
 
     return (
@@ -268,7 +402,9 @@ function App() {
 
           <h1>{portal.title}</h1>
 
-          <p className="auth-description">{portal.description}</p>
+          <p className="auth-description">
+            {portal.description}
+          </p>
 
           <button
             className="enter-button"
