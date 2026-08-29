@@ -7,6 +7,7 @@ const helmet = require("helmet");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth");
 const testRoutes = require("./routes/test");
+const profileRoutes = require("./routes/profile");
 
 dotenv.config();
 
@@ -46,6 +47,8 @@ connectDB();
 app.use("/api/auth", authLimiter, authRoutes);
 
 app.use("/api/test", testRoutes);
+
+app.use("/api/profile", profileRoutes);
 
 // ==================== HEALTH CHECK ====================
 
